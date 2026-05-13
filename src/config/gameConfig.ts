@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
 import { GameOverScene } from '../scenes/GameOverScene';
 import { GameScene } from '../scenes/GameScene';
+import { LeaderboardScene } from '../scenes/LeaderboardScene';
 import { MainMenuScene } from '../scenes/MainMenuScene';
 import { TutorialScene } from '../scenes/TutorialScene';
 
@@ -29,5 +30,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 }
     }
   },
-  scene: [BootScene, MainMenuScene, TutorialScene, GameScene, GameOverScene]
+  scene: [BootScene, MainMenuScene, TutorialScene, GameScene, GameOverScene, LeaderboardScene]
 };

@@ -22,6 +22,9 @@ export class BootScene extends Phaser.Scene {
     this.makeMonster('monster-fraud', 0x4caf50, true);
     this.makeMonster('monster-run', 0x38b000, true);
     this.makeMonster('monster-caught', 0xa7c957, true, true);
+    this.makeMonster('monster-golden-disguise', 0xffd166, false);
+    this.makeMonster('monster-golden', 0xffd166, true);
+    this.makeMonster('monster-golden-caught', 0xffe08a, true, true);
   }
 
   private makePaci(key: string, body: number, shade: number, footOffset = 0, happy = false): void {

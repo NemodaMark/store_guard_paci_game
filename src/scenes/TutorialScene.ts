@@ -14,8 +14,9 @@ export class TutorialScene extends Phaser.Scene {
     const lines = [
       'Tapelj a boltban, hogy Paci odaszaladjon.',
       'A zold szornyek vevonek alcazzak magukat.',
-      'Ha felvillan a riasztas, kapd el a menekulot.',
-      'Minden elkapas +1 pont. 120 masodpercig tart a kor.'
+      'Ha felvillan a CATCH jel, tapelj a menekulore.',
+      'Gyors elkapasok kombot adnak. Az arany szorny +5 alap pont.',
+      '120 masodpercig tart a kor.'
     ];
 
     lines.forEach((line, index) => {

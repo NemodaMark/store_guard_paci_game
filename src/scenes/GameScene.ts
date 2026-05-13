@@ -4,10 +4,16 @@ import { STORE_BOUNDS } from '../config/gameRules';
 import { Monster } from '../entities/Monster';
 import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
+import { ComboManager } from '../managers/ComboManager';
+import { DifficultyManager } from '../managers/DifficultyManager';
+import { LayoutManager } from '../managers/LayoutManager';
+import { UpgradeManager } from '../managers/UpgradeManager';
 import { AudioSystem } from '../systems/AudioSystem';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { FraudEventManager } from '../systems/FraudEventManager';
 import { GameStateManager } from '../systems/GameStateManager';
+import { GoldenMonsterSystem } from '../systems/GoldenMonsterSystem';
+import { JuiceEffectsSystem } from '../systems/JuiceEffectsSystem';
 import { MapSystem } from '../systems/MapSystem';
 import { ScoringSystem } from '../systems/ScoringSystem';
 import { TimerSystem } from '../systems/TimerSystem';
@@ -21,6 +27,11 @@ export class GameScene extends Phaser.Scene {
   private state = new GameStateManager();
   private timer!: TimerSystem;
   private scoring!: ScoringSystem;
+  private combo = new ComboManager();
+  private difficulty = new DifficultyManager();
+  private upgrades = new UpgradeManager();
+  private golden!: GoldenMonsterSystem;
+  private juice!: JuiceEffectsSystem;
   private audio!: AudioSystem;
   private map!: MapSystem;
   private hud!: Hud;
@@ -30,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   private npcs: Npc[] = [];
   private monsters: Monster[] = [];
   private pausedOverlay?: Phaser.GameObjects.Container;
+  private escapeCues = new Map<Monster, Phaser.GameObjects.Container>();
 
   constructor() {
     super('GameScene');
@@ -42,10 +54,12 @@ export class GameScene extends Phaser.Scene {
     this.audio = new AudioSystem(this);
     this.audio.create();
     this.audio.playMusic();
+    this.golden = new GoldenMonsterSystem();
+    this.juice = new JuiceEffectsSystem(this);
 
     this.physics.world.setBounds(STORE_BOUNDS.x, STORE_BOUNDS.y, STORE_BOUNDS.width, STORE_BOUNDS.height);
     this.map = new MapSystem(this);
-    this.map.create();
+    this.map.create(LayoutManager.chooseRandomPreset());
 
     this.player = new Player(this, 120, 590);
     this.createCrowd();
@@ -61,7 +75,14 @@ export class GameScene extends Phaser.Scene {
     collision.addWorldColliders(this.player, this.npcs, this.monsters, this.map.obstacles);
     collision.addCatchOverlap(this.player, this.monsters, (monster) => this.catchMonster(monster));
 
-    this.eventManager = new FraudEventManager(this, this.monsters, (monster, event) => this.showFraudAlert(monster, event));
+    this.eventManager = new FraudEventManager(
+      this,
+      this.monsters,
+      () => this.difficulty.getLevel(this.state.remainingSeconds),
+      (monster, event) => this.showFraudAlert(monster, event),
+      (monster) => this.showEscapeCue(monster),
+      (monster) => this.maybeMakeGolden(monster)
+    );
     this.eventManager.start();
 
     this.timer.start(() => {
@@ -81,6 +102,10 @@ export class GameScene extends Phaser.Scene {
     this.player.updateActor();
     this.npcs.forEach((npc) => npc.updateWander(time));
     this.monsters.forEach((monster) => monster.updateMonster(time));
+    this.updateEscapeCue();
+    this.checkCatchProximity();
+    this.combo.update(time);
+    this.hud.refreshCombo(this.combo.getCombo(), this.combo.getMultiplier(), this.combo.getRemainingRatio(time));
   }
 
   private createCrowd(): void {
@@ -126,12 +151,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private catchMonster(monster: Monster): void {
+    this.clearEscapeCue(monster);
     monster.caught();
     this.audio.play('catch');
     this.audio.play('score');
-    this.scoring.captureMonster();
+    const combo = this.combo.registerCatch(this.time.now);
+    const basePoints = monster.isGolden ? 5 : 1;
+    const points = basePoints * combo.multiplier;
+    this.scoring.captureMonster(points);
     this.hud.refresh();
+    this.hud.refreshCombo(combo.combo, combo.multiplier, this.combo.getRemainingRatio(this.time.now));
     this.player.playCatchFeedback();
+    this.juice.catchBurst(this.player, monster, points, combo.combo);
 
     const bubble = this.add.circle(monster.x, monster.y, 14, 0x9ee7ff, 0.35).setStrokeStyle(4, 0xffffff).setDepth(1900);
     this.tweens.add({
@@ -149,9 +180,53 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => {
         monster.setScale(1);
         monster.resetBlendIn(randomBetween(120, GAME_WIDTH - 160), randomBetween(130, GAME_HEIGHT - 120));
-        this.eventManager.completeCurrent();
+        this.eventManager.completeCurrent(monster);
       }
     });
+  }
+
+  private showEscapeCue(monster: Monster): void {
+    this.clearEscapeCue(monster);
+
+    const color = monster.isGolden ? 0xffd166 : 0xff3b30;
+    const ring = this.add.circle(0, 0, monster.isGolden ? 46 : 38, color, 0.12).setStrokeStyle(5, 0xffffff);
+    const label = this.add.text(0, -62, monster.isGolden ? 'GOLDEN!' : 'CATCH!', pixelTextStyle(22, '#ffffff')).setOrigin(0.5);
+    const arrow = this.add.triangle(0, -28, 0, 0, 18, 22, -18, 22, color).setStrokeStyle(3, 0xffffff);
+    const cue = this.add.container(monster.x, monster.y, [ring, label, arrow]).setDepth(2100);
+    this.escapeCues.set(monster, cue);
+    this.tweens.add({
+      targets: cue,
+      scale: { from: 0.9, to: 1.12 },
+      yoyo: true,
+      repeat: -1,
+      duration: 260
+    });
+  }
+
+  private updateEscapeCue(): void {
+    this.escapeCues.forEach((cue, monster) => cue.setPosition(monster.x, monster.y));
+  }
+
+  private checkCatchProximity(): void {
+    this.eventManager.getEscapingMonsters().forEach((escaping) => {
+      const catchRadius = 58 + this.upgrades.getCatchRadiusBonus() + (escaping.isGolden ? -8 : 0);
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, escaping.x, escaping.y);
+      if (distance <= catchRadius) {
+        this.catchMonster(escaping);
+      }
+    });
+  }
+
+  private clearEscapeCue(monster: Monster): void {
+    this.escapeCues.get(monster)?.destroy();
+    this.escapeCues.delete(monster);
+  }
+
+  private maybeMakeGolden(monster: Monster): void {
+    if (this.golden.shouldMakeGolden(this.time.now)) {
+      this.golden.apply(monster);
+      this.juice.goldenPopup(monster.x, monster.y);
+    }
   }
 
   private togglePause(): void {
@@ -175,6 +250,8 @@ export class GameScene extends Phaser.Scene {
     this.audio.stopMusic();
     this.timer.stop();
     this.eventManager.stop();
+    this.escapeCues.forEach((cue) => cue.destroy());
+    this.escapeCues.clear();
     this.scene.start('GameOverScene', { score: this.state.score });
   }
 }

@@ -21,5 +21,6 @@ export class MainMenuScene extends Phaser.Scene {
 
     createButton(this, 640, 345, 'PLAY', () => this.scene.start('TutorialScene'), 280);
     createButton(this, 640, 432, 'TUTORIAL', () => this.scene.start('TutorialScene'), 280);
+    createButton(this, 640, 519, 'LEADERBOARD', () => this.scene.start('LeaderboardScene'), 280);
   }
 }

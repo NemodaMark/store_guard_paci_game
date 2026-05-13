@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config/gameConfig';
 import { CHECKOUT_ZONE, STORE_BOUNDS } from '../config/gameRules';
+import { LayoutPreset } from '../managers/LayoutManager';
+import { pixelTextStyle } from '../utils/pixelText';
 
 export class MapSystem {
   readonly obstacles: Phaser.Physics.Arcade.StaticGroup;
@@ -9,7 +11,7 @@ export class MapSystem {
     this.obstacles = scene.physics.add.staticGroup();
   }
 
-  create(): void {
+  create(layout: LayoutPreset): void {
     const addRect = (x: number, y: number, w: number, h: number, color: number, depth = 1): Phaser.GameObjects.Rectangle => {
       const rect = this.scene.add.rectangle(x, y, w, h, color).setOrigin(0.5).setDepth(depth);
       return rect;
@@ -24,18 +26,10 @@ export class MapSystem {
       }
     }
 
-    this.addObstacle(210, 190, 250, 54, 0xf25f5c, 'FRISS');
-    this.addObstacle(210, 305, 250, 54, 0x4ecdc4, 'ITAL');
-    this.addObstacle(210, 420, 250, 54, 0xffc857, 'NASI');
-    this.addObstacle(535, 190, 260, 54, 0x6a4c93, 'TEJ');
-    this.addObstacle(535, 305, 260, 54, 0x2ec4b6, 'ZOLDSEG');
-    this.addObstacle(535, 420, 260, 54, 0xff9f1c, 'AKCIO');
-    this.addObstacle(840, 190, 220, 54, 0x3a86ff, 'HUTO');
-    this.addObstacle(1035, 230, 82, 216, 0x90be6d, 'RAKTAR');
+    layout.shelves.forEach((shelf) => this.addObstacle(shelf.x, shelf.y, shelf.width, shelf.height, shelf.color, shelf.label));
 
     addRect(CHECKOUT_ZONE.x + CHECKOUT_ZONE.width / 2, CHECKOUT_ZONE.y + CHECKOUT_ZONE.height / 2, CHECKOUT_ZONE.width, CHECKOUT_ZONE.height, 0x9a8c98, 2);
-    this.addObstacle(954, 520, 112, 48, 0x2f4858, 'KASSZA');
-    this.addObstacle(1100, 520, 78, 48, 0x2f4858, 'KASSZA');
+    layout.checkouts.forEach((checkout) => this.addObstacle(checkout.x, checkout.y, checkout.width, checkout.height, checkout.color, checkout.label));
 
     addRect(STORE_BOUNDS.x + STORE_BOUNDS.width / 2, STORE_BOUNDS.y - 16, STORE_BOUNDS.width, 32, 0x35a7ff, 4);
     this.scene.add.text(84, 48, 'BOLT OR PACI SZUPERMARKET', {
@@ -43,6 +37,7 @@ export class MapSystem {
       fontSize: '24px',
       color: '#ffffff'
     }).setDepth(6);
+    this.scene.add.text(920, 48, layout.name.toUpperCase(), pixelTextStyle(18, '#fff3b0')).setDepth(6);
   }
 
   private addObstacle(x: number, y: number, w: number, h: number, color: number, label: string): void {

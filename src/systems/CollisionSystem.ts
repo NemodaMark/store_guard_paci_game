@@ -16,7 +16,6 @@ export class CollisionSystem {
     npcs.forEach((npc) => this.scene.physics.add.collider(npc, obstacles));
     monsters.forEach((monster) => this.scene.physics.add.collider(monster, obstacles));
     this.scene.physics.add.collider(player, npcs);
-    this.scene.physics.add.collider(player, monsters);
 
     const actors = [...npcs, ...monsters];
     actors.forEach((actor, index) => {
