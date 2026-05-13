@@ -1,11 +1,16 @@
 import Phaser from 'phaser';
-import { LeaderboardEntry, LeaderboardManager } from '../managers/LeaderboardManager';
+import { LeaderboardEntry, LeaderboardManager } from '../leaderboard/LeaderboardManager';
+import { FeatureUnlockManager } from '../story/FeatureUnlockManager';
+import { STORY_MISSIONS } from '../story/StoryMission';
+import { StoryProgressManager } from '../story/StoryProgressManager';
 import { RoundResult } from '../types';
 import { createButton } from '../ui/Button';
 import { pixelTextStyle } from '../utils/pixelText';
 
 export class GameOverScene extends Phaser.Scene {
   private readonly leaderboard = new LeaderboardManager();
+  private readonly progress = new StoryProgressManager();
+  private readonly unlocks = new FeatureUnlockManager(this.progress);
   private result!: RoundResult;
   private nameValue = '';
   private nameText?: Phaser.GameObjects.Text;
@@ -18,14 +23,59 @@ export class GameOverScene extends Phaser.Scene {
   create(result: RoundResult): void {
     this.result = result;
     this.add.rectangle(640, 360, 1280, 720, 0x101828);
-    this.showNameEntry();
+
+    if (result.mode === 'story') {
+      this.showStoryResult();
+      return;
+    }
+
+    this.showArcadeNameEntry();
   }
 
-  private showNameEntry(): void {
+  private showStoryResult(): void {
+    const complete = this.result.storyComplete === true;
+    const mission = STORY_MISSIONS.find((candidate) => candidate.id === this.result.missionId);
+    if (complete && mission) {
+      this.progress.completeMission(mission.id, mission.unlockedFeature.id);
+    }
+
+    this.layer?.destroy();
+    const items: Phaser.GameObjects.GameObject[] = [];
+    items.push(this.add.text(640, 62, complete ? 'MISSION COMPLETE' : 'MISSION ENDED', pixelTextStyle(46, '#ffffff')).setOrigin(0.5));
+    items.push(this.add.text(640, 128, this.result.missionTitle ?? 'Story Mission', pixelTextStyle(28, '#fff3b0')).setOrigin(0.5));
+    items.push(this.add.text(640, 180, `SCORE ${this.result.score}`, pixelTextStyle(24, '#ffffff')).setOrigin(0.5));
+
+    if (mission && complete) {
+      mission.outroDialogue.forEach((line, index) => {
+        items.push(this.add.text(210, 235 + index * 38, line, pixelTextStyle(22, '#ffffff')));
+      });
+
+      const feature = this.unlocks.getFeatureById(mission.unlockedFeature.id) ?? mission.unlockedFeature;
+      items.push(this.add.text(640, 350, 'UNLOCKED FEATURE', pixelTextStyle(26, '#43b7ff')).setOrigin(0.5));
+      items.push(this.add.rectangle(640, 452, 780, 150, 0x243b53, 0.92).setStrokeStyle(4, 0xffd166));
+      items.push(this.add.text(285, 392, feature.name, pixelTextStyle(26, '#ffffff')));
+      items.push(this.add.text(285, 435, `Business: ${feature.businessMeaning}`, pixelTextStyle(18, '#fff3b0')));
+      items.push(this.add.text(285, 480, `Gameplay: ${feature.gameplayEffect}`, pixelTextStyle(18, '#ffffff')));
+    } else {
+      items.push(this.add.text(640, 330, 'Try the mission again to unlock the feature card.', pixelTextStyle(24, '#fff3b0')).setOrigin(0.5));
+    }
+
+    items.push(createButton(this, 470, 635, complete ? 'NEXT' : 'RETRY', () => {
+      if (!complete && mission) {
+        this.scene.start('StoryMissionIntroScene', { missionId: mission.id });
+        return;
+      }
+      this.scene.start('StoryMapScene');
+    }, 260));
+    items.push(createButton(this, 790, 635, 'MENU', () => this.scene.start('MainMenuScene'), 260));
+    this.layer = this.add.container(0, 0, items);
+  }
+
+  private showArcadeNameEntry(): void {
     this.layer?.destroy();
     const items: Phaser.GameObjects.GameObject[] = [];
     items.push(this.add.sprite(210, 150, 'paci-happy').setScale(2.2));
-    items.push(this.add.text(640, 72, 'GAME OVER', pixelTextStyle(52, '#ffffff')).setOrigin(0.5));
+    items.push(this.add.text(640, 72, 'ARCADE GAME OVER', pixelTextStyle(44, '#ffffff')).setOrigin(0.5));
     items.push(this.add.text(640, 136, `FINAL SCORE ${this.result.score}`, pixelTextStyle(32, '#fff3b0')).setOrigin(0.5));
     items.push(this.add.text(640, 205, 'ENTER NAME', pixelTextStyle(28, '#ffffff')).setOrigin(0.5));
     items.push(this.add.rectangle(640, 265, 330, 58, 0x243b53).setStrokeStyle(4, 0xffffff));
@@ -49,14 +99,13 @@ export class GameOverScene extends Phaser.Scene {
   private showLeaderboard(entries: LeaderboardEntry[]): void {
     this.layer?.destroy();
     const items: Phaser.GameObjects.GameObject[] = [];
-    items.push(this.add.text(640, 62, 'LEADERBOARD', pixelTextStyle(48, '#ffffff')).setOrigin(0.5));
+    items.push(this.add.text(640, 62, 'ARCADE LEADERBOARD', pixelTextStyle(44, '#ffffff')).setOrigin(0.5));
     items.push(this.add.text(302, 126, 'RANK', pixelTextStyle(20, '#fff3b0')));
     items.push(this.add.text(448, 126, 'NAME', pixelTextStyle(20, '#fff3b0')));
     items.push(this.add.text(650, 126, 'SCORE', pixelTextStyle(20, '#fff3b0')));
     items.push(this.add.text(820, 126, 'DATE', pixelTextStyle(20, '#fff3b0')));
 
-    const rows = entries.length > 0 ? entries : [{ name: 'PACI', score: this.result.score, date: new Date().toLocaleDateString() }];
-    rows.slice(0, 10).forEach((entry, index) => {
+    entries.slice(0, 10).forEach((entry, index) => {
       const y = 174 + index * 38;
       items.push(this.add.rectangle(640, y + 15, 720, 32, index % 2 === 0 ? 0x1b4965 : 0x243b53, 0.72));
       items.push(this.add.text(315, y, `${index + 1}`, pixelTextStyle(22, '#ffffff')));
@@ -65,7 +114,7 @@ export class GameOverScene extends Phaser.Scene {
       items.push(this.add.text(820, y, entry.date, pixelTextStyle(22, '#ffffff')));
     });
 
-    items.push(createButton(this, 530, 630, 'RESTART', () => this.scene.start('GameScene'), 260));
+    items.push(createButton(this, 530, 630, 'RESTART', () => this.scene.start('ArcadeSettingsScene'), 260));
     items.push(createButton(this, 820, 630, 'MENU', () => this.scene.start('MainMenuScene'), 260));
     this.layer = this.add.container(0, 0, items);
   }

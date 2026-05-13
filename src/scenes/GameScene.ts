@@ -6,8 +6,11 @@ import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
 import { ComboManager } from '../managers/ComboManager';
 import { DifficultyManager } from '../managers/DifficultyManager';
-import { LayoutManager } from '../managers/LayoutManager';
+import { LayoutManager, LAYOUT_PRESETS } from '../managers/LayoutManager';
 import { UpgradeManager } from '../managers/UpgradeManager';
+import { createArcadeModeConfig } from '../modes/ArcadeModeConfig';
+import { GameModeConfig } from '../modes/GameModeConfig';
+import { StoryObjectiveTracker } from '../story/StoryObjectiveTracker';
 import { AudioSystem } from '../systems/AudioSystem';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { FraudEventManager } from '../systems/FraudEventManager';
@@ -38,17 +41,27 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private controls!: TouchControlSystem;
   private eventManager!: FraudEventManager;
+  private config: GameModeConfig = createArcadeModeConfig();
+  private objectiveTracker?: StoryObjectiveTracker;
   private npcs: Npc[] = [];
   private monsters: Monster[] = [];
   private pausedOverlay?: Phaser.GameObjects.Container;
   private escapeCues = new Map<Monster, Phaser.GameObjects.Container>();
+  private roundEnded = false;
 
   constructor() {
     super('GameScene');
   }
 
-  create(): void {
-    this.state.reset();
+  create(config?: GameModeConfig): void {
+    this.config = config ?? createArcadeModeConfig();
+    this.npcs = [];
+    this.monsters = [];
+    this.escapeCues.clear();
+    this.roundEnded = false;
+    this.combo = new ComboManager();
+    this.objectiveTracker = this.config.missionObjective ? new StoryObjectiveTracker(this.config.missionObjective) : undefined;
+    this.state.reset(this.config.roundTime);
     this.timer = new TimerSystem(this);
     this.scoring = new ScoringSystem(this.state);
     this.audio = new AudioSystem(this);
@@ -59,14 +72,15 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.world.setBounds(STORE_BOUNDS.x, STORE_BOUNDS.y, STORE_BOUNDS.width, STORE_BOUNDS.height);
     this.map = new MapSystem(this);
-    this.map.create(LayoutManager.chooseRandomPreset());
+    this.map.create(this.config.randomLayout ? LayoutManager.chooseRandomPreset() : LAYOUT_PRESETS[0]);
 
     this.player = new Player(this, 120, 590);
     this.createCrowd();
 
     this.hud = new Hud(this, this.state, () => this.togglePause());
-    this.hud.create();
+    this.hud.create(this.config.mode === 'story' ? 'STORY MODE' : 'ARCADE MODE', this.objectiveTracker?.getLabel());
     this.hud.refresh();
+    this.hud.setComboVisible(this.config.comboEnabled);
 
     this.controls = new TouchControlSystem(this, this.player);
     this.controls.create();
@@ -78,7 +92,8 @@ export class GameScene extends Phaser.Scene {
     this.eventManager = new FraudEventManager(
       this,
       this.monsters,
-      () => this.difficulty.getLevel(this.state.remainingSeconds),
+      this.config.enabledFraudTypes,
+      () => this.difficulty.getLevel(this.state.remainingSeconds, this.config.roundTime, this.config.difficulty, this.config.maxActiveMonsters),
       (monster, event) => this.showFraudAlert(monster, event),
       (monster) => this.showEscapeCue(monster),
       (monster) => this.maybeMakeGolden(monster)
@@ -88,6 +103,13 @@ export class GameScene extends Phaser.Scene {
     this.timer.start(() => {
       if (this.state.tickSecond()) {
         this.endRound();
+      }
+      this.objectiveTracker?.updateElapsed(this.config.roundTime - this.state.remainingSeconds);
+      if (this.objectiveTracker?.isComplete()) {
+        this.completeStoryMission();
+      }
+      if (this.objectiveTracker) {
+        this.hud.refreshObjective(this.objectiveTracker.getLabel());
       }
       this.hud.refresh();
     });
@@ -104,8 +126,10 @@ export class GameScene extends Phaser.Scene {
     this.monsters.forEach((monster) => monster.updateMonster(time));
     this.updateEscapeCue();
     this.checkCatchProximity();
-    this.combo.update(time);
-    this.hud.refreshCombo(this.combo.getCombo(), this.combo.getMultiplier(), this.combo.getRemainingRatio(time));
+    if (this.config.comboEnabled) {
+      this.combo.update(time);
+      this.hud.refreshCombo(this.combo.getCombo(), this.combo.getMultiplier(), this.combo.getRemainingRatio(time));
+    }
   }
 
   private createCrowd(): void {
@@ -155,14 +179,26 @@ export class GameScene extends Phaser.Scene {
     monster.caught();
     this.audio.play('catch');
     this.audio.play('score');
-    const combo = this.combo.registerCatch(this.time.now);
+    const combo = this.config.comboEnabled ? this.combo.registerCatch(this.time.now) : { combo: 1, multiplier: 1, didIncrease: false };
     const basePoints = monster.isGolden ? 5 : 1;
     const points = basePoints * combo.multiplier;
     this.scoring.captureMonster(points);
     this.hud.refresh();
-    this.hud.refreshCombo(combo.combo, combo.multiplier, this.combo.getRemainingRatio(this.time.now));
+    if (this.config.comboEnabled) {
+      this.hud.refreshCombo(combo.combo, combo.multiplier, this.combo.getRemainingRatio(this.time.now));
+    }
     this.player.playCatchFeedback();
     this.juice.catchBurst(this.player, monster, points, combo.combo);
+    this.objectiveTracker?.registerCatch({
+      fraudType: monster.activeFraud?.type,
+      elapsedSeconds: this.config.roundTime - this.state.remainingSeconds
+    });
+    if (this.objectiveTracker) {
+      this.hud.refreshObjective(this.objectiveTracker.getLabel());
+    }
+    if (this.objectiveTracker?.isComplete()) {
+      this.completeStoryMission();
+    }
 
     const bubble = this.add.circle(monster.x, monster.y, 14, 0x9ee7ff, 0.35).setStrokeStyle(4, 0xffffff).setDepth(1900);
     this.tweens.add({
@@ -223,10 +259,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private maybeMakeGolden(monster: Monster): void {
-    if (this.golden.shouldMakeGolden(this.time.now)) {
+    if (this.config.goldenMonsterEnabled && this.golden.shouldMakeGolden(this.time.now)) {
       this.golden.apply(monster);
       this.juice.goldenPopup(monster.x, monster.y);
     }
+  }
+
+  private completeStoryMission(): void {
+    if (this.config.mode !== 'story') {
+      return;
+    }
+
+    this.endRound(true);
   }
 
   private togglePause(): void {
@@ -246,12 +290,24 @@ export class GameScene extends Phaser.Scene {
     this.pausedOverlay = this.add.container(0, 0, [shade, panel, text, hint]).setDepth(3000);
   }
 
-  private endRound(): void {
+  private endRound(storyComplete = false): void {
+    if (this.roundEnded) {
+      return;
+    }
+
+    this.roundEnded = true;
     this.audio.stopMusic();
     this.timer.stop();
     this.eventManager.stop();
     this.escapeCues.forEach((cue) => cue.destroy());
     this.escapeCues.clear();
-    this.scene.start('GameOverScene', { score: this.state.score });
+    this.scene.start('GameOverScene', {
+      score: this.state.score,
+      mode: this.config.mode,
+      missionId: this.config.missionId,
+      missionTitle: this.config.missionTitle,
+      featureUnlocks: this.config.featureUnlocks,
+      storyComplete
+    });
   }
 }

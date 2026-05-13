@@ -7,7 +7,10 @@ Boltőr Paci is a lightweight retro pixel arcade game for Android tablets in lan
 - Phaser 3 + TypeScript + Vite
 - PWA manifest and service worker setup
 - Android tablet landscape scaling
-- Main menu, tutorial, HUD, pause, and game over flow
+- Main menu with Story Mode, Arcade Mode, Leaderboard, and Settings
+- Arcade settings for difficulty, round time, layout, golden monster, and combo rules
+- Story mission flow with intros, objectives, feature unlock cards, and progress screen
+- HUD, pause, and mode-aware game over flow
 - 120 second time attack rounds
 - Tap-to-move controls plus a left-side virtual joystick
 - Five randomized supermarket layout presets
@@ -44,6 +47,9 @@ src/
   entities/    Paci, NPCs, monsters
   systems/     AI, events, collision, scoring, timers, audio, map, controls
   managers/    Difficulty, combo, leaderboard, layouts, upgrades
+  modes/       Reusable Arcade and Story game configurations
+  story/       Missions, objectives, progress, feature unlocks
+  leaderboard/ Arcade leaderboard exports
   ui/          HUD and reusable buttons
   config/      Game constants and Phaser config
   utils/       Shared helpers

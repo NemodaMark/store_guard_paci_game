@@ -1,4 +1,5 @@
 import { ROUND_SECONDS } from '../config/gameRules';
+import { ArcadeDifficulty } from '../modes/GameModeConfig';
 
 export interface DifficultyLevel {
   elapsedSeconds: number;
@@ -17,8 +18,26 @@ const levels: DifficultyLevel[] = [
 ];
 
 export class DifficultyManager {
-  getLevel(remainingSeconds: number): DifficultyLevel {
-    const elapsed = ROUND_SECONDS - remainingSeconds;
-    return [...levels].reverse().find((level) => elapsed >= level.elapsedSeconds) ?? levels[0];
+  getLevel(remainingSeconds: number, roundSeconds = ROUND_SECONDS, baseDifficulty: ArcadeDifficulty = 'normal', maxActiveOverride?: number): DifficultyLevel {
+    const elapsed = roundSeconds - remainingSeconds;
+    const level = { ...([...levels].reverse().find((candidate) => elapsed >= candidate.elapsedSeconds) ?? levels[0]) };
+
+    if (baseDifficulty === 'easy') {
+      level.escapeSpeedMultiplier *= 0.9;
+      level.eventDelayMultiplier *= 1.18;
+      level.maxActiveFrauds = Math.max(1, level.maxActiveFrauds - 1);
+    }
+
+    if (baseDifficulty === 'hard') {
+      level.escapeSpeedMultiplier *= 1.15;
+      level.eventDelayMultiplier *= 0.82;
+      level.maxActiveFrauds += 1;
+    }
+
+    if (maxActiveOverride !== undefined) {
+      level.maxActiveFrauds = Math.min(level.maxActiveFrauds, maxActiveOverride);
+    }
+
+    return level;
   }
 }

@@ -1,13 +1,11 @@
-import { ROUND_SECONDS } from '../config/gameRules';
-
 export class GameStateManager {
   score = 0;
-  remainingSeconds = ROUND_SECONDS;
+  remainingSeconds = 120;
   paused = false;
 
-  reset(): void {
+  reset(roundSeconds = 120): void {
     this.score = 0;
-    this.remainingSeconds = ROUND_SECONDS;
+    this.remainingSeconds = roundSeconds;
     this.paused = false;
   }
 

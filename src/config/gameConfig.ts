@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
+import { ArcadeSettingsScene } from '../scenes/ArcadeSettingsScene';
 import { BootScene } from '../scenes/BootScene';
 import { GameOverScene } from '../scenes/GameOverScene';
 import { GameScene } from '../scenes/GameScene';
 import { LeaderboardScene } from '../scenes/LeaderboardScene';
 import { MainMenuScene } from '../scenes/MainMenuScene';
+import { SettingsScene } from '../scenes/SettingsScene';
+import { StoryMapScene } from '../scenes/StoryMapScene';
+import { StoryMissionIntroScene } from '../scenes/StoryMissionIntroScene';
 import { TutorialScene } from '../scenes/TutorialScene';
 
 export const GAME_WIDTH = 1280;
@@ -30,5 +34,16 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 }
     }
   },
-  scene: [BootScene, MainMenuScene, TutorialScene, GameScene, GameOverScene, LeaderboardScene]
+  scene: [
+    BootScene,
+    MainMenuScene,
+    ArcadeSettingsScene,
+    StoryMapScene,
+    StoryMissionIntroScene,
+    TutorialScene,
+    GameScene,
+    GameOverScene,
+    LeaderboardScene,
+    SettingsScene
+  ]
 };

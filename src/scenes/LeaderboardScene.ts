@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { LeaderboardManager } from '../managers/LeaderboardManager';
+import { LeaderboardManager } from '../leaderboard/LeaderboardManager';
 import { createButton } from '../ui/Button';
 import { pixelTextStyle } from '../utils/pixelText';
 
@@ -12,7 +12,7 @@ export class LeaderboardScene extends Phaser.Scene {
 
   create(): void {
     this.add.rectangle(640, 360, 1280, 720, 0x101828);
-    this.add.text(640, 70, 'LEADERBOARD', pixelTextStyle(50, '#ffffff')).setOrigin(0.5);
+    this.add.text(640, 70, 'ARCADE LEADERBOARD', pixelTextStyle(50, '#ffffff')).setOrigin(0.5);
     this.add.text(302, 138, 'RANK', pixelTextStyle(20, '#fff3b0'));
     this.add.text(448, 138, 'NAME', pixelTextStyle(20, '#fff3b0'));
     this.add.text(650, 138, 'SCORE', pixelTextStyle(20, '#fff3b0'));

@@ -16,11 +16,12 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.add.sprite(350, 350, 'paci-happy').setScale(3);
     this.add.sprite(930, 360, 'monster-run').setScale(2.7);
-    this.add.text(640, 118, 'BOLTŐR PACI', pixelTextStyle(72, '#ffffff')).setOrigin(0.5);
-    this.add.text(640, 206, 'retro bolti fogocska', pixelTextStyle(26, '#fff3b0')).setOrigin(0.5);
+    this.add.text(640, 96, 'BOLTOR PACI', pixelTextStyle(72, '#ffffff')).setOrigin(0.5);
+    this.add.text(640, 178, 'company demo arcade', pixelTextStyle(26, '#fff3b0')).setOrigin(0.5);
 
-    createButton(this, 640, 345, 'PLAY', () => this.scene.start('TutorialScene'), 280);
-    createButton(this, 640, 432, 'TUTORIAL', () => this.scene.start('TutorialScene'), 280);
-    createButton(this, 640, 519, 'LEADERBOARD', () => this.scene.start('LeaderboardScene'), 280);
+    createButton(this, 640, 292, 'STORY MODE', () => this.scene.start('StoryMapScene'), 320);
+    createButton(this, 640, 374, 'ARCADE MODE', () => this.scene.start('ArcadeSettingsScene'), 320);
+    createButton(this, 640, 456, 'LEADERBOARD', () => this.scene.start('LeaderboardScene'), 320);
+    createButton(this, 640, 538, 'SETTINGS', () => this.scene.start('SettingsScene'), 320);
   }
 }

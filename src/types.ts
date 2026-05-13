@@ -21,6 +21,11 @@ export interface FraudEvent {
 
 export interface RoundResult {
   score: number;
+  mode?: 'arcade' | 'story';
+  missionId?: string;
+  missionTitle?: string;
+  featureUnlocks?: string[];
+  storyComplete?: boolean;
 }
 
 export type Point = Phaser.Types.Math.Vector2Like;

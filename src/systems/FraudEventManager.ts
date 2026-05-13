@@ -17,6 +17,7 @@ export class FraudEventManager {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly monsters: Monster[],
+    private readonly enabledFraudTypes: FraudType[],
     private readonly getDifficulty: () => DifficultyLevel,
     private readonly onAlert: (monster: Monster, event: FraudEvent) => void,
     private readonly onEscape: (monster: Monster) => void,
@@ -61,7 +62,8 @@ export class FraudEventManager {
     }
 
     const monster = choose(available);
-    const event = choose(this.events);
+    const candidates = this.events.filter((event) => this.enabledFraudTypes.includes(event.type));
+    const event = choose(candidates.length > 0 ? candidates : this.events);
     this.active.add(monster);
     this.onCandidateSelected(monster);
 

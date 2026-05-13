@@ -7,6 +7,8 @@ export class Hud {
   private timerText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private comboFill!: Phaser.GameObjects.Rectangle;
+  private modeText!: Phaser.GameObjects.Text;
+  private objectiveText?: Phaser.GameObjects.Text;
   private alertContainer?: Phaser.GameObjects.Container;
 
   constructor(
@@ -15,9 +17,10 @@ export class Hud {
     private readonly onPause: () => void
   ) {}
 
-  create(): void {
+  create(modeLabel = 'ARCADE MODE', objectiveLabel?: string): void {
     this.scene.add.rectangle(640, 34, 1240, 56, 0x101828, 0.7).setDepth(1500);
     this.scoreText = this.scene.add.text(34, 15, 'SCORE 0', pixelTextStyle(28)).setDepth(1501);
+    this.modeText = this.scene.add.text(248, 19, modeLabel, pixelTextStyle(20, '#43b7ff')).setDepth(1501);
     this.timerText = this.scene.add.text(575, 15, '120', pixelTextStyle(28, '#fff3b0')).setDepth(1501);
     this.comboText = this.scene.add.text(828, 16, 'COMBO x1', pixelTextStyle(22, '#ffffff')).setDepth(1501);
     this.scene.add.rectangle(940, 46, 170, 10, 0x2f4858).setOrigin(0, 0.5).setDepth(1501);
@@ -26,6 +29,10 @@ export class Hud {
     const pause = this.scene.add.rectangle(1194, 34, 56, 42, 0xffc857).setStrokeStyle(3, 0xffffff).setDepth(1501);
     this.scene.add.text(1194, 18, 'II', pixelTextStyle(24, '#162033')).setOrigin(0.5, 0).setDepth(1502);
     pause.setInteractive({ useHandCursor: true }).on('pointerdown', this.onPause);
+
+    if (objectiveLabel) {
+      this.objectiveText = this.scene.add.text(34, 72, `MISSION OBJECTIVE: ${objectiveLabel}`, pixelTextStyle(19, '#fff3b0')).setDepth(1501);
+    }
   }
 
   refresh(): void {
@@ -43,6 +50,15 @@ export class Hud {
     this.comboText.setText(`COMBO x${multiplier}`);
     this.comboText.setColor(combo > 1 ? '#ff5b5b' : '#ffffff');
     this.comboFill.width = 170 * ratio;
+  }
+
+  setComboVisible(visible: boolean): void {
+    this.comboText.setVisible(visible);
+    this.comboFill.setVisible(visible);
+  }
+
+  refreshObjective(label: string): void {
+    this.objectiveText?.setText(`MISSION OBJECTIVE: ${label}`);
   }
 
   showAlert(x: number, y: number, title: string, icon: string): void {
